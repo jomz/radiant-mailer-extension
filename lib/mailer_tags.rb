@@ -76,7 +76,7 @@ module MailerTags
     tag.attr['id'] ||= 'mailer'
     results = []
     if defined?(SiteLanguage) && SiteLanguage.count > 0
-      url = "/#{Locale.language.code}" + tag.locals.page.url
+      url = "/#{I18n.locale.to_s}" + tag.locals.page.url
     else
       url = tag.locals.page.url
     end
