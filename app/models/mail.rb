@@ -1,5 +1,6 @@
 class Mail
   attr_reader :page, :config, :data, :errors
+
   def initialize(page, config, data)
     @page, @config, @data = page, config.with_indifferent_access, data
     @required = @data.delete(:required)
@@ -7,9 +8,23 @@ class Mail
   end
 
   def self.valid_config?(config)
-    return false if config['recipients'].blank? and config['recipients_field'].blank?
-    return false if config['from'].blank? and config['from_field'].blank?
-    true
+    config_errors(config).empty?
+  end
+  
+  def self.config_errors(config)
+    config_errors = {}
+    %w(recipients from).each do |required_field|
+      if config[required_field].blank? and config["#{required_field}_field"].blank?
+        config_errors[required_field] = "is required"
+      end
+    end
+    config_errors
+  end
+  
+  def self.config_error_messages(config)
+    config_errors(config).collect do |field, message|
+      "'#{field}' #{message}"
+    end.to_sentence
   end
 
   def valid?
@@ -37,16 +52,29 @@ class Mail
 
       if @required
         @required.each do |name, msg|
-          if data[name].blank?
-            errors[name] = ((msg.blank? || %w(1 true required).include?(msg)) ? "is required." : msg)
-            @valid = false
+          if "as_email" == msg
+            unless valid_email?(data[name])
+              errors[name] = "invalid email address."
+              @valid = false
+            end
+          elsif m = msg.match(/\/(.*)\//)
+            regex = Regexp.new(m[1])
+            unless data[name] =~ regex
+              errors[name] = "doesn't match regex (#{m[1]})"
+              @valid = false
+            end
+          else
+            if data[name].blank?
+              errors[name] = ((msg.blank? || %w(1 true required not_blank).include?(msg)) ? "is required." : msg)
+              @valid = false
+            end
           end
         end
       end
     end
     @valid
   end
-
+  
   def from
     config[:from] || data[config[:from_field]]
   end
@@ -71,21 +99,39 @@ class Mail
     data[config[:cc_field]] || config[:cc] || ""
   end
   
+  def files
+    res = []
+    data.each_value do |d|
+      res << d if StringIO === d or Tempfile === d
+    end
+    res
+  end
+  
+  def filesize_limit
+    config[:filesize_limit] || 0
+  end
+  
+  def plain_body
+    return nil if not valid?
+    @plain_body ||= (page.part( :email ) ? page.render_part( :email ) : page.render_part( :email_plain ))
+  end
+  
+  def html_body
+    return nil if not valid?
+    @html_body = page.render_part( :email_html ) || nil
+  end
+
   def send
     return false if not valid?
-    reply_to = reply_to || from
-
-    plain_body = (page.part( :email ) ? page.render_part( :email ) : page.render_part( :email_plain ))
-    html_body = page.render_part( :email_html ) || nil
 
     if plain_body.blank? and html_body.blank?
-      plain_body = <<-EMAIL
+      @plain_body = <<-EMAIL
 The following information was posted:
 #{data.to_hash.to_yaml}
       EMAIL
     end
 
-    headers = { 'Reply-To' => reply_to }
+    headers = { 'Reply-To' => reply_to || from }
     if sender
       headers['Return-Path'] = sender
       headers['Sender'] = sender
@@ -95,10 +141,12 @@ The following information was posted:
       :recipients => recipients,
       :from => from,
       :subject => subject,
-      :plain_body => plain_body,
-      :html_body => html_body,
+      :plain_body => @plain_body,
+      :html_body => @html_body,
       :cc => cc,
-      :headers => headers
+      :headers => headers,
+      :files => files,
+      :filesize_limit => filesize_limit
     )
     @sent = true
   rescue Exception => e
@@ -113,7 +161,7 @@ The following information was posted:
   protected
 
   def valid_email?(email)
-    (email.blank? ? true : email =~ /.@.+\../)
+    (email.blank? ? true : email =~ /^[^@]+@([^@.]+\.)[^@]+$/)
   end
   
   def is_required_field?(field_name)
