@@ -15,7 +15,7 @@ module MailerProcess
       self.last_mail = part_page.last_mail = mail
 
       if mail.send
-        if !request.parameters[:send_to_maillist].nil?
+        if !request.parameters[:mailer][:send_to_maillist].nil?
           # is mailbuild set up properly?
           if config.has_key? :mb_url
             # We get url's like http://gorilla.createsend.com/t/1/s/tlirt/
