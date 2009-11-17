@@ -22,7 +22,7 @@ module MailerProcess
             # We post to url's like http://gorilla.createsend.com/t/1/s/tlirt/?mb-name=#{name}&mb-tlirt-tlirt=#{email}
             email_field = config[:mb_url].split('/').last
             data = request.parameters[:mailer]
-            response.redirect("#{config[:mb_url]}?cm-name=#{data['naam']}&cm-#{email_field}-#{email_field}=#{data['email']}", "302 Found")
+            response.redirect("#{config[:mb_url]}?cm-name=#{data['naam']}&cm-#{email_field}-#{email_field}=#{data['email']}", "302 Found") and return
           else
             raise MailerTagError("Mailbuild is not properly set up.")
           end
