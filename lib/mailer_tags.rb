@@ -71,7 +71,7 @@ module MailerTags
       tag.locals.error_messages.each do |on, err|
         result << content_tag(:li, "#{on} #{err}")
       end
-      return content_tag(:ul, result)
+      return content_tag(:ul, result.join)
     end
     tag.locals.error_message
   end
@@ -99,6 +99,7 @@ module MailerTags
     }
   }
 </script>)
+    results.join ''
   end
 
   desc %{
@@ -127,9 +128,9 @@ module MailerTags
     tag.attr.merge!("name" => "mailer-form-button")
     src = tag.attr['src'] || nil
     if src
-      result = [%(<input onclick="showSubmitPlaceholder();" type="image" src="#{src}" value="#{value}" #{mailer_attrs(tag)} />)]
+      %(<input onclick="showSubmitPlaceholder();" type="image" src="#{src}" value="#{value}" #{mailer_attrs(tag)} />)
     else
-      result = [%(<input onclick="showSubmitPlaceholder();" type="submit" value="#{value}" #{mailer_attrs(tag)} />)]
+      %(<input onclick="showSubmitPlaceholder();" type="submit" value="#{value}" #{mailer_attrs(tag)} />)
     end
   end
 
@@ -142,6 +143,7 @@ module MailerTags
       results = %Q(<div id="submit-placeholder-part" style="display:none">)
       results << render_part(:submit_placeholder)
       results << %Q(</div>)
+      results.join ''
     end
   end
 
@@ -228,7 +230,7 @@ module MailerTags
           result << tag.expand
         end
     end
-    result
+    result.join ''
   end
   
   desc %{ 
@@ -378,7 +380,7 @@ module MailerTags
 
   def add_required(result, tag)
     result << %(<input type="hidden" name="mailer[required][#{tag.attr['name']}]" value="#{tag.attr['required']}" />) if tag.attr['required']
-    result
+    result.join
   end
 
   def raise_error_if_name_missing(tag_name, tag_attr)
